@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>IDX · Japan · Crypto — Daily Market Data</title>
+<meta name="description" content="Daily OHLCV data for selected IDX, Tokyo and crypto tickers — auto-scraped and committed every day." />
+<style>
+  :root{
+    --bg:#0b0f1a; --panel:#121829; --panel2:#0f1422; --line:#1f2940;
+    --text:#e6ebf5; --muted:#8a96b0; --accent:#4f8cff; --up:#26d07c; --down:#ff5d6c;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+  a{color:var(--accent);text-decoration:none}
+  a:hover{text-decoration:underline}
+  .wrap{max-width:1180px;margin:0 auto;padding:32px 20px 64px}
+  header h1{margin:0 0 6px;font-size:26px;letter-spacing:.2px}
+  header p{margin:0;color:var(--muted)}
+  .meta{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin-top:14px;
+    color:var(--muted);font-size:13px}
+  .pill{background:var(--panel);border:1px solid var(--line);border-radius:999px;
+    padding:4px 12px}
+  .group{margin-top:38px}
+  .group h2{font-size:15px;text-transform:uppercase;letter-spacing:1.5px;
+    color:var(--muted);margin:0 0 14px;font-weight:600}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
+  .card{background:linear-gradient(180deg,var(--panel),var(--panel2));
+    border:1px solid var(--line);border-radius:14px;padding:16px 16px 8px;
+    box-shadow:0 6px 20px rgba(0,0,0,.25)}
+  .card .top{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+  .sym{font-weight:700;font-size:15px}
+  .name{color:var(--muted);font-size:12px;margin-top:2px}
+  .price{text-align:right;white-space:nowrap}
+  .last{font-weight:700;font-size:16px}
+  .chg{font-size:12px;font-weight:600;margin-top:2px}
+  .up{color:var(--up)} .down{color:var(--down)}
+  .chartbox{height:120px;margin-top:8px}
+  footer{margin-top:48px;color:var(--muted);font-size:13px;border-top:1px solid var(--line);
+    padding-top:18px}
+  .loading{color:var(--muted);padding:40px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>📈 Daily Market Data — IDX · Japan · Crypto</h1>
+    <p>Per-ticker daily OHLCV, auto-scraped from Yahoo Finance and committed to GitHub every day.</p>
+    <div class="meta">
+      <span class="pill" id="updated">Updated: …</span>
+      <span class="pill" id="count">… tickers</span>
+      <a class="pill" href="https://github.com/SeedFlora/idx-daily-data" target="_blank" rel="noopener">⌥ Source repo →</a>
+    </div>
+  </header>
+
+  <div id="root" class="loading">Loading data…</div>
+
+  <footer>
+    Data: Yahoo Finance (daily bars). This page reads the CSVs in
+    <a href="https://github.com/SeedFlora/idx-daily-data/tree/main/data" target="_blank" rel="noopener">/data</a>
+    directly — it updates automatically with each daily commit. Not investment advice.
+  </footer>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+const NAMES = {
+  "BBCA.JK":"Bank Central Asia", "BBRI.JK":"Bank Rakyat Indonesia",
+  "BMRI.JK":"Bank Mandiri", "TLKM.JK":"Telkom Indonesia", "ASII.JK":"Astra International",
+  "6356.T":"Nippon Gear", "7203.T":"Toyota Motor", "6758.T":"Sony Group",
+  "BTC-USD":"Bitcoin", "ETH-USD":"Ethereum",
+};
+const GROUP_ORDER = ["IDX (Indonesia)", "Japan (Tokyo)", "Crypto", "Other"];
+
+function fmtCurrency(sym, v){
+  let loc="en-US", cur="USD", max=2;
+  if(sym.endsWith(".JK")){loc="id-ID";cur="IDR";max=0;}
+  else if(sym.endsWith(".T")){loc="ja-JP";cur="JPY";max=0;}
+  try{return new Intl.NumberFormat(loc,{style:"currency",currency:cur,maximumFractionDigits:max}).format(v);}
+  catch(e){return v.toLocaleString();}
+}
+
+function parseCSV(text){
+  const lines = text.trim().split(/\r?\n/);
+  const head = lines[0].split(",");
+  const di = head.indexOf("Date"), ci = head.indexOf("Close");
+  const dates=[], close=[];
+  for(let i=1;i<lines.length;i++){
+    const c = lines[i].split(",");
+    const v = parseFloat(c[ci]);
+    if(!isNaN(v)){ dates.push(c[di]); close.push(v); }
+  }
+  return {dates, close};
+}
+
+function card(sym, group){
+  const last = sym._close[sym._close.length-1];
+  const prev = sym._close[sym._close.length-2] ?? last;
+  const chg = prev ? (last-prev)/prev*100 : 0;
+  const up = chg>=0;
+  const el = document.createElement("div");
+  el.className="card";
+  el.innerHTML = `
+    <div class="top">
+      <div>
+        <div class="sym">${sym.symbol}</div>
+        <div class="name">${NAMES[sym.symbol]||group}</div>
+      </div>
+      <div class="price">
+        <div class="last">${fmtCurrency(sym.symbol,last)}</div>
+        <div class="chg ${up?'up':'down'}">${up?'▲':'▼'} ${Math.abs(chg).toFixed(2)}%</div>
+      </div>
+    </div>
+    <div class="chartbox"><canvas></canvas></div>`;
+  const ctx = el.querySelector("canvas");
+  new Chart(ctx,{
+    type:"line",
+    data:{labels:sym._dates,datasets:[{
+      data:sym._close, borderColor:up?'#26d07c':'#ff5d6c', borderWidth:1.6,
+      pointRadius:0, tension:.25, fill:true,
+      backgroundColor:(up?'rgba(38,208,124,.10)':'rgba(255,93,108,.10)'),
+    }]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},tooltip:{
+        callbacks:{label:(c)=>fmtCurrency(sym.symbol,c.parsed.y)},
+        displayColors:false}},
+      scales:{
+        x:{ticks:{maxTicksLimit:5,color:'#6b7690',font:{size:10}},grid:{display:false}},
+        y:{ticks:{maxTicksLimit:4,color:'#6b7690',font:{size:10},
+            callback:(v)=>Intl.NumberFormat('en',{notation:'compact'}).format(v)},
+          grid:{color:'rgba(255,255,255,.04)'}}
+      }}
+  });
+  return el;
+}
+
+async function main(){
+  const root = document.getElementById("root");
+  try{
+    const man = await (await fetch("data/manifest.json",{cache:"no-store"})).json();
+    document.getElementById("updated").textContent =
+      "Updated: " + new Date(man.updated).toLocaleString();
+    document.getElementById("count").textContent = man.tickers.length + " tickers";
+
+    // load all CSVs in parallel
+    await Promise.all(man.tickers.map(async t=>{
+      const txt = await (await fetch(t.file,{cache:"no-store"})).text();
+      const p = parseCSV(txt);
+      t._dates=p.dates; t._close=p.close;
+    }));
+
+    root.className=""; root.innerHTML="";
+    for(const g of GROUP_ORDER){
+      const items = man.tickers.filter(t=>t.group===g && t._close && t._close.length);
+      if(!items.length) continue;
+      const sec=document.createElement("section");
+      sec.className="group";
+      sec.innerHTML=`<h2>${g}</h2>`;
+      const grid=document.createElement("div");
+      grid.className="grid";
+      items.forEach(t=>grid.appendChild(card(t,g)));
+      sec.appendChild(grid);
+      root.appendChild(sec);
+    }
+  }catch(e){
+    root.innerHTML = "⚠️ Failed to load data: "+e.message;
+  }
+}
+main();
+</script>
+</body>
+</html>

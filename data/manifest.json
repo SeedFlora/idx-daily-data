@@ -1,0 +1,55 @@
+{
+  "updated": "2026-06-28T19:46:29+00:00",
+  "tickers": [
+    {
+      "symbol": "BBCA.JK",
+      "group": "IDX (Indonesia)",
+      "file": "data/BBCA.JK.csv"
+    },
+    {
+      "symbol": "BBRI.JK",
+      "group": "IDX (Indonesia)",
+      "file": "data/BBRI.JK.csv"
+    },
+    {
+      "symbol": "BMRI.JK",
+      "group": "IDX (Indonesia)",
+      "file": "data/BMRI.JK.csv"
+    },
+    {
+      "symbol": "TLKM.JK",
+      "group": "IDX (Indonesia)",
+      "file": "data/TLKM.JK.csv"
+    },
+    {
+      "symbol": "ASII.JK",
+      "group": "IDX (Indonesia)",
+      "file": "data/ASII.JK.csv"
+    },
+    {
+      "symbol": "6356.T",
+      "group": "Japan (Tokyo)",
+      "file": "data/6356.T.csv"
+    },
+    {
+      "symbol": "7203.T",
+      "group": "Japan (Tokyo)",
+      "file": "data/7203.T.csv"
+    },
+    {
+      "symbol": "6758.T",
+      "group": "Japan (Tokyo)",
+      "file": "data/6758.T.csv"
+    },
+    {
+      "symbol": "BTC-USD",
+      "group": "Crypto",
+      "file": "data/BTC-USD.csv"
+    },
+    {
+      "symbol": "ETH-USD",
+      "group": "Crypto",
+      "file": "data/ETH-USD.csv"
+    }
+  ]
+}
