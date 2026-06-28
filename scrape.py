@@ -1,10 +1,9 @@
 #!/usr/bin/env python3
 """Daily IDX + Japan + crypto OHLCV scraper.
 
-Pulls daily bars from Yahoo Finance and appends/upserts one CSV per ticker
-under ./data, plus a manifest.json the dashboard uses to auto-discover tickers.
-Re-running is safe: rows are keyed by Date, so corrected or late-arriving
-values overwrite the same day instead of duplicating.
+Pulls daily bars from Yahoo Finance and upserts one CSV per ticker under ./data,
+plus a manifest.json the dashboard uses to auto-discover tickers. Re-running is
+safe: rows are keyed by Date, so corrections overwrite the same day.
 """
 import os
 import sys
@@ -23,15 +22,22 @@ TICKERS = [
     "BMRI.JK",  # Bank Mandiri
     "TLKM.JK",  # Telkom Indonesia
     "ASII.JK",  # Astra International
+    "^JKSE",    # Jakarta Composite Index
     # Japan (Tokyo)
     "6356.T",   # Nippon Gear
     "7203.T",   # Toyota Motor
     "6758.T",   # Sony Group
+    "9984.T",   # SoftBank Group
+    "8306.T",   # Mitsubishi UFJ
+    "9432.T",   # NTT
+    "^N225",    # Nikkei 225
     # Crypto (weekend coverage, real data)
     "BTC-USD",
     "ETH-USD",
 ]
 # -----------------------------------------------------------------------
+
+SPECIAL_GROUP = {"^JKSE": "IDX (Indonesia)", "^N225": "Japan (Tokyo)"}
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 LOOKBACK = "5d"
@@ -40,6 +46,8 @@ WANTED_COLS = ["Open", "High", "Low", "Close", "Adj Close", "Volume"]
 
 
 def group_of(sym):
+    if sym in SPECIAL_GROUP:
+        return SPECIAL_GROUP[sym]
     if sym.endswith(".JK"):
         return "IDX (Indonesia)"
     if sym.endswith(".T"):
@@ -49,8 +57,12 @@ def group_of(sym):
     return "Other"
 
 
+def csv_name(sym):
+    """Filesystem/URL-safe filename (indices start with ^)."""
+    return sym.replace("^", "_") + ".csv"
+
+
 def fetch(ticker, period=None):
-    """Download daily bars with simple retry/backoff."""
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             df = yf.download(
@@ -63,14 +75,13 @@ def fetch(ticker, period=None):
             )
             if df is not None and not df.empty:
                 return df
-        except Exception as e:  # noqa: BLE001 - log and retry anything
+        except Exception as e:  # noqa: BLE001
             print(f"  ! {ticker} attempt {attempt} failed: {e}")
         time.sleep(2 * attempt)
     return None
 
 
 def upsert(ticker, df):
-    """Merge new rows into the per-ticker CSV, keyed by Date."""
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
 
@@ -79,7 +90,7 @@ def upsert(ticker, df):
     df.index = pd.to_datetime(df.index).tz_localize(None).normalize()
     df.index.name = "Date"
 
-    path = os.path.join(DATA_DIR, f"{ticker}.csv")
+    path = os.path.join(DATA_DIR, csv_name(ticker))
     if os.path.exists(path):
         old = pd.read_csv(path, index_col="Date", parse_dates=True)
         combined = pd.concat([old, df])
@@ -92,11 +103,10 @@ def upsert(ticker, df):
 
 
 def write_manifest(tickers):
-    """Write data/manifest.json so the dashboard can auto-discover tickers."""
     manifest = {
         "updated": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         "tickers": [
-            {"symbol": t, "group": group_of(t), "file": f"data/{t}.csv"}
+            {"symbol": t, "group": group_of(t), "file": f"data/{csv_name(t)}"}
             for t in tickers
         ],
     }

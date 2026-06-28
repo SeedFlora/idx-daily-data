@@ -1,29 +1,47 @@
 #!/usr/bin/env bash
 #
-# Runs the scraper, then commits + pushes ONLY if data actually changed.
-# Designed for cron. No fake/empty commits.
+# Scrapes, then commits in up to 3 groups (IDX / Japan / Crypto) so trading days
+# show ~3 real commits. No fake/empty commits — a group is committed only if its
+# data actually changed. Pushes once at the end.
 #
 set -euo pipefail
 
 REPO_DIR="/opt/idx-daily-data"
 VENV_PY="$REPO_DIR/.venv/bin/python"
-
 cd "$REPO_DIR"
 
-# 1. scrape (writes/updates files under data/)
 "$VENV_PY" "$REPO_DIR/scrape.py"
 
-# 2. stage everything
-git add -A
+DATE="$(date +%F)"
+COMMITS=0
 
-# 3. commit only if there's a real diff
-if git diff --cached --quiet; then
-    echo "no changes — skipping commit"
-    exit 0
+commit_group() {
+    local label="$1"; shift
+    shopt -s nullglob
+    local files=()
+    for pat in "$@"; do files+=( $pat ); done
+    shopt -u nullglob
+    [ ${#files[@]} -eq 0 ] && return 0
+    git add -- "${files[@]}"
+    if git diff --cached --quiet; then return 0; fi
+    git commit -q -m "data(${label}): ${DATE}"
+    COMMITS=$((COMMITS+1))
+}
+
+# IDX + Jakarta index
+commit_group "IDX"   'data/*.JK.csv' 'data/_JKSE.csv'
+# Japan + Nikkei index
+commit_group "Japan" 'data/*.T.csv'  'data/_N225.csv'
+# Crypto + manifest + anything else left
+git add -A
+if ! git diff --cached --quiet; then
+    git commit -q -m "data(Crypto): ${DATE}"
+    COMMITS=$((COMMITS+1))
 fi
 
-DATE="$(date +%F)"
-FILES="$(git diff --cached --name-only -- data/ | wc -l | tr -d ' ')"
-git commit -q -m "data: ${DATE} (${FILES} files updated)"
-git push -q origin main
-echo "pushed commit for ${DATE} (${FILES} files)"
+if [ "$COMMITS" -gt 0 ]; then
+    git push -q origin main
+    echo "pushed ${COMMITS} commit(s) for ${DATE}"
+else
+    echo "no changes — nothing to push"
+fi
