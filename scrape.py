@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Daily IDX + Japan + crypto OHLCV scraper.
+"""Daily IDX + Japan + US + crypto OHLCV scraper.
 
 Pulls daily bars from Yahoo Finance and upserts one CSV per ticker under ./data,
 plus a manifest.json the dashboard uses to auto-discover tickers. Re-running is
@@ -17,27 +17,27 @@ import yfinance as yf
 # --- EDIT THIS: tickers to track ---------------------------------------
 TICKERS = [
     # IDX (Indonesia)
-    "BBCA.JK",  # Bank Central Asia
-    "BBRI.JK",  # Bank Rakyat Indonesia
-    "BMRI.JK",  # Bank Mandiri
-    "TLKM.JK",  # Telkom Indonesia
-    "ASII.JK",  # Astra International
+    "BBCA.JK", "BBRI.JK", "BMRI.JK", "TLKM.JK", "ASII.JK",
     "^JKSE",    # Jakarta Composite Index
     # Japan (Tokyo)
-    "6356.T",   # Nippon Gear
-    "7203.T",   # Toyota Motor
-    "6758.T",   # Sony Group
-    "9984.T",   # SoftBank Group
-    "8306.T",   # Mitsubishi UFJ
-    "9432.T",   # NTT
+    "6356.T", "7203.T", "6758.T", "9984.T", "8306.T", "9432.T",
     "^N225",    # Nikkei 225
+    # US / Global indices
+    "^GSPC",    # S&P 500
+    "^IXIC",    # Nasdaq Composite
+    "^DJI",     # Dow Jones Industrial Average
     # Crypto (weekend coverage, real data)
-    "BTC-USD",
-    "ETH-USD",
+    "BTC-USD", "ETH-USD",
 ]
 # -----------------------------------------------------------------------
 
-SPECIAL_GROUP = {"^JKSE": "IDX (Indonesia)", "^N225": "Japan (Tokyo)"}
+SPECIAL_GROUP = {
+    "^JKSE": "IDX (Indonesia)",
+    "^N225": "Japan (Tokyo)",
+    "^GSPC": "US / Global",
+    "^IXIC": "US / Global",
+    "^DJI": "US / Global",
+}
 
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 LOOKBACK = "5d"
@@ -58,7 +58,7 @@ def group_of(sym):
 
 
 def csv_name(sym):
-    """Filesystem/URL-safe filename (indices start with ^)."""
+    """Pages-safe filename: drop the ^ index prefix (no leading underscore)."""
     return sym.replace("^", "") + ".csv"
 
 
@@ -66,12 +66,8 @@ def fetch(ticker, period=None):
     for attempt in range(1, MAX_RETRIES + 1):
         try:
             df = yf.download(
-                ticker,
-                period=period or LOOKBACK,
-                interval="1d",
-                auto_adjust=False,
-                progress=False,
-                threads=False,
+                ticker, period=period or LOOKBACK, interval="1d",
+                auto_adjust=False, progress=False, threads=False,
             )
             if df is not None and not df.empty:
                 return df
@@ -84,12 +80,10 @@ def fetch(ticker, period=None):
 def upsert(ticker, df):
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
-
     cols = [c for c in WANTED_COLS if c in df.columns]
     df = df[cols].copy()
     df.index = pd.to_datetime(df.index).tz_localize(None).normalize()
     df.index.name = "Date"
-
     path = os.path.join(DATA_DIR, csv_name(ticker))
     if os.path.exists(path):
         old = pd.read_csv(path, index_col="Date", parse_dates=True)
@@ -118,7 +112,6 @@ def main():
     os.makedirs(DATA_DIR, exist_ok=True)
     stamp = datetime.now(timezone.utc).astimezone().strftime("%Y-%m-%d %H:%M %Z")
     print(f"[{stamp}] scraping {len(TICKERS)} tickers")
-
     ok, done = 0, []
     for t in TICKERS:
         df = fetch(t)
@@ -129,7 +122,6 @@ def main():
         print(f"  + {t}: {rows} rows total")
         done.append(t)
         ok += 1
-
     write_manifest(done if done else TICKERS)
     print(f"done: {ok}/{len(TICKERS)} ok")
     sys.exit(0 if ok else 1)

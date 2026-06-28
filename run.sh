@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #
-# Scrapes, then commits in up to 3 groups (IDX / Japan / Crypto) so trading days
-# show ~3 real commits. No fake/empty commits — a group is committed only if its
-# data actually changed. Pushes once at the end.
+# Scrapes, then commits per market group (IDX / Japan / US-Global / Crypto) so
+# trading days show several real commits. A group is committed only if its data
+# changed (no fake/empty commits). Pushes once at the end.
 #
 set -euo pipefail
 
@@ -28,11 +28,11 @@ commit_group() {
     COMMITS=$((COMMITS+1))
 }
 
-# IDX + Jakarta index
-commit_group "IDX"   'data/*.JK.csv' 'data/_JKSE.csv'
-# Japan + Nikkei index
-commit_group "Japan" 'data/*.T.csv'  'data/_N225.csv'
-# Crypto + manifest + anything else left
+commit_group "IDX"       'data/*.JK.csv' 'data/JKSE.csv'
+commit_group "Japan"     'data/*.T.csv'  'data/N225.csv'
+commit_group "US-Global" 'data/GSPC.csv' 'data/IXIC.csv' 'data/DJI.csv'
+
+# Crypto + manifest + anything else
 git add -A
 if ! git diff --cached --quiet; then
     git commit -q -m "data(Crypto): ${DATE}"

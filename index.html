@@ -124,9 +124,11 @@ const NAMES = {
   "BBCA.JK":"Bank Central Asia","BBRI.JK":"Bank Rakyat Indonesia","BMRI.JK":"Bank Mandiri",
   "TLKM.JK":"Telkom Indonesia","ASII.JK":"Astra International","^JKSE":"Jakarta Composite",
   "6356.T":"Nippon Gear","7203.T":"Toyota Motor","6758.T":"Sony Group","9984.T":"SoftBank Group",
-  "8306.T":"Mitsubishi UFJ","9432.T":"NTT","^N225":"Nikkei 225","BTC-USD":"Bitcoin","ETH-USD":"Ethereum",
+  "8306.T":"Mitsubishi UFJ","9432.T":"NTT","^N225":"Nikkei 225",
+  "^GSPC":"S&P 500","^IXIC":"Nasdaq Composite","^DJI":"Dow Jones",
+  "BTC-USD":"Bitcoin","ETH-USD":"Ethereum",
 };
-const GROUP_ORDER = ["IDX (Indonesia)","Japan (Tokyo)","Crypto","Other"];
+const GROUP_ORDER = ["IDX (Indonesia)","Japan (Tokyo)","US / Global","Crypto","Other"];
 const PERIOD_DAYS = {"1M":30,"3M":90,"1Y":365,"ALL":100000};
 const STATE = { period:"1Y", tickers:[], cards:{}, charts:{} };
 
@@ -160,7 +162,7 @@ function countUp(el,to,sym){
 }
 
 function buildCard(t,i){
-  const color = t.group.startsWith("IDX")?"#5b8cff":t.group.startsWith("Japan")?"#ff8f5b":"#22d39a";
+  const color = t.group.startsWith("IDX")?"#5b8cff":t.group.startsWith("Japan")?"#ff8f5b":t.group.startsWith("US")?"#a78bfa":"#22d39a";
   const el=document.createElement("div");el.className="card";
   el.style.setProperty("--d",(i*55)+"ms");el.style.setProperty("--c",color);
   el.innerHTML=`<div class="ctop"><div>
