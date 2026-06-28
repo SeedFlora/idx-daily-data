@@ -59,7 +59,7 @@ def group_of(sym):
 
 def csv_name(sym):
     """Filesystem/URL-safe filename (indices start with ^)."""
-    return sym.replace("^", "_") + ".csv"
+    return sym.replace("^", "") + ".csv"
 
 
 def fetch(ticker, period=None):
